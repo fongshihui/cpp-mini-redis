@@ -1,64 +1,97 @@
 #include "../include/command_handler.h"
-#include <sstream>
+
+#include <algorithm>
+#include <cctype>
+
+namespace {
+
+std::string to_upper(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+        return static_cast<char>(std::toupper(c));
+    });
+    return value;
+}
+
+RedisReply wrong_arity(const std::string& command_name) {
+    return {RedisReplyType::Error,
+            "ERR wrong number of arguments for '" + command_name + "' command"};
+}
+
+}  // namespace
 
 CommandHandler::CommandHandler(KVStore& kv) : store(kv) {}
 
-std::string CommandHandler::handle(const std::string& command) {
-    std::stringstream ss(command);
+RedisReply CommandHandler::handle(const std::vector<std::string>& args) {
+    if (args.empty()) {
+        return {RedisReplyType::Error, "ERR empty command"};
+    }
 
-    std::string cmd, key, value;
-    ss >> cmd;
+    const std::string cmd = to_upper(args[0]);
 
     if (cmd == "PING") {
-        std::string message;
-        std::getline(ss, message);
-        if (!message.empty()) {
-            message.erase(0, message.find_first_not_of(' '));
-            return "PONG " + message;
+        if (args.size() > 2) {
+            return wrong_arity("ping");
         }
-        return "PONG";
+        if (args.size() == 2) {
+            return {RedisReplyType::BulkString, args[1]};
+        }
+        return {RedisReplyType::SimpleString, "PONG"};
     }
 
     if (cmd == "SET") {
-        ss >> key >> value;
-        store.set(key, value);
-        return "OK";
+        if (args.size() != 3) {
+            return wrong_arity("set");
+        }
+        store.set(args[1], args[2]);
+        return {RedisReplyType::SimpleString, "OK"};
     }
 
     if (cmd == "GET") {
-        ss >> key;
-        return store.get(key);
+        if (args.size() != 2) {
+            return wrong_arity("get");
+        }
+        auto value = store.get(args[1]);
+        if (!value.has_value()) {
+            return {RedisReplyType::NullBulkString, ""};
+        }
+        return {RedisReplyType::BulkString, *value};
     }
 
     if (cmd == "DEL") {
-        ss >> key;
-        return store.del(key) ? "1" : "0";
+        if (args.size() != 2) {
+            return wrong_arity("del");
+        }
+        return {RedisReplyType::Integer, store.del(args[1]) ? "1" : "0"};
     }
 
     if (cmd == "EXISTS") {
-        ss >> key;
-        return store.exists(key) ? "1" : "0";
+        if (args.size() != 2) {
+            return wrong_arity("exists");
+        }
+        return {RedisReplyType::Integer, store.exists(args[1]) ? "1" : "0"};
     }
 
     if (cmd == "INCR") {
-        ss >> key;
+        if (args.size() != 2) {
+            return wrong_arity("incr");
+        }
         try {
-            int result = store.incr(key);
-            return std::to_string(result);
-        } catch (const std::exception& e) {
-            return "ERR value is not an integer or out of range";
+            return {RedisReplyType::Integer, std::to_string(store.incr(args[1]))};
+        } catch (const std::exception&) {
+            return {RedisReplyType::Error, "ERR value is not an integer or out of range"};
         }
     }
 
     if (cmd == "DECR") {
-        ss >> key;
+        if (args.size() != 2) {
+            return wrong_arity("decr");
+        }
         try {
-            int result = store.decr(key);
-            return std::to_string(result);
-        } catch (const std::exception& e) {
-            return "ERR value is not an integer or out of range";
+            return {RedisReplyType::Integer, std::to_string(store.decr(args[1]))};
+        } catch (const std::exception&) {
+            return {RedisReplyType::Error, "ERR value is not an integer or out of range"};
         }
     }
 
-    return "ERR unknown command '" + cmd + "'";
+    return {RedisReplyType::Error, "ERR unknown command '" + args[0] + "'"};
 }

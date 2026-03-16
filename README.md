@@ -4,7 +4,7 @@ A lightweight Redis-compatible in-memory key-value store implementation in C++. 
 
 ## Features
 
-- ✅ **Redis Protocol (RESP) Support** - Communicates using Redis Serialization Protocol
+- ✅ **Redis Protocol (RESP) Support** - Parses RESP array requests and emits RESP-compatible replies
 - ✅ **Basic Commands** - PING, SET, GET, DEL, EXISTS, INCR, DECR
 - ✅ **In-Memory Storage** - Fast key-value storage with string support
 - ✅ **TCP Server** - Listens on port 6379 (standard Redis port)
@@ -104,7 +104,7 @@ client.disconnect()
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `PING` | Test server connectivity | `PING` → `PONG` |
+| `PING` | Test server connectivity | `PING` → `PONG`, `PING hello` → `hello` |
 | `SET` | Store a key-value pair | `SET name John` → `OK` |
 | `GET` | Retrieve a value by key | `GET name` → `John` |
 | `DEL` | Delete a key | `DEL name` → `1` |
@@ -134,7 +134,7 @@ cpp-mini-redis/
 ## Key Components
 
 - **`KVStore`**: In-memory key-value storage engine
-- **`CommandHandler`**: Parses and executes Redis commands
+- **`CommandHandler`**: Validates command arguments and returns typed Redis replies
 - **`Server`**: TCP server that handles client connections
 - **`redis_client.py`**: Python client for testing and demonstration
 
@@ -142,10 +142,11 @@ cpp-mini-redis/
 
 ### Adding New Commands
 
-1. Add command parsing in `command_handler.cpp`
+1. Add command handling in `command_handler.cpp`
 2. Implement the command logic in the appropriate class
-3. Update the Python client to support the new command
-4. Test with both Redis CLI and Python client
+3. Ensure `server.cpp` can decode and encode the RESP shape for the new command
+4. Update the Python client to support the new command
+5. Run `ctest --output-on-failure`
 
 ### Building and Testing
 
@@ -154,6 +155,9 @@ cpp-mini-redis/
 rm -rf build/
 mkdir build && cd build
 cmake .. && make
+
+# Run the native regression tests
+ctest --output-on-failure
 
 # Run server
 ./mini_redis
@@ -164,7 +168,7 @@ python3 ../redis_client.py
 
 ## Limitations
 
-- Single-threaded event loop (for simplicity)
+- One thread per client connection rather than an event-driven architecture
 - Basic in-memory storage (no persistence)
 - Limited command set compared to full Redis
 - No authentication or security features

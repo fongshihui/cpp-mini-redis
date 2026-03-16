@@ -1,6 +1,22 @@
 #pragma once
+
 #include <string>
+#include <vector>
+
 #include "kvstore.h"
+
+enum class RedisReplyType {
+    SimpleString,
+    BulkString,
+    Integer,
+    Error,
+    NullBulkString,
+};
+
+struct RedisReply {
+    RedisReplyType type;
+    std::string value;
+};
 
 class CommandHandler {
 private:
@@ -8,5 +24,5 @@ private:
 
 public:
     CommandHandler(KVStore& kv);
-    std::string handle(const std::string& command);
+    RedisReply handle(const std::vector<std::string>& args);
 };
