@@ -11,11 +11,13 @@ enum class RedisReplyType {
     Integer,
     Error,
     NullBulkString,
+    Array,
 };
 
 struct RedisReply {
     RedisReplyType type;
     std::string value;
+    std::vector<RedisReply> elements;
 };
 
 class CommandHandler {

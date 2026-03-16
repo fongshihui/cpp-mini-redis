@@ -6,6 +6,8 @@ A lightweight Redis-compatible in-memory key-value store implementation in C++. 
 
 - ✅ **Redis Protocol (RESP) Support** - Parses RESP array requests and emits RESP-compatible replies
 - ✅ **Basic Commands** - PING, SET, GET, DEL, EXISTS, INCR, DECR
+- ✅ **TTL Support** - Set expiring keys with `SET ... EX`, update them with `EXPIRE`, and inspect them with `TTL`
+- ✅ **Key Intelligence** - Track metadata with `META` and identify hot keys with `TOPKEYS`
 - ✅ **In-Memory Storage** - Fast key-value storage with string support
 - ✅ **TCP Server** - Listens on port 6379 (standard Redis port)
 - ✅ **Thread-Safe** - Handles multiple client connections
@@ -111,6 +113,40 @@ client.disconnect()
 | `EXISTS` | Check if key exists | `EXISTS name` → `1` or `0` |
 | `INCR` | Increment numeric value | `INCR counter` → `11` |
 | `DECR` | Decrement numeric value | `DECR counter` → `10` |
+| `SET key value EX seconds` | Store a key with a TTL | `SET session abc EX 60` → `OK` |
+| `EXPIRE` | Attach a TTL to an existing key | `EXPIRE session 30` → `1` |
+| `TTL` | Inspect the remaining lifetime | `TTL session` → `30`, `-1`, or `-2` |
+| `META` | Return a metadata snapshot for a key | `META session` → RESP array |
+| `TOPKEYS` | Rank the busiest keys by access count | `TOPKEYS 3` → `["feed:18", "user:7"]` |
+
+## Standout Features
+
+### 1. Expiring Keys
+
+```bash
+127.0.0.1:6379> SET session_token abc123 EX 60
+OK
+127.0.0.1:6379> TTL session_token
+(integer) 60
+```
+
+### 2. Key Metadata
+
+`META` returns a RESP array describing:
+
+- key name
+- value size in bytes
+- created, updated, and last-access timestamps in milliseconds
+- access count
+- remaining TTL in milliseconds
+
+### 3. Hot Key Leaderboard
+
+```bash
+127.0.0.1:6379> TOPKEYS 2
+1) "feed:18"
+2) "user:7"
+```
 
 ## Project Structure
 
@@ -145,7 +181,7 @@ cpp-mini-redis/
 1. Add command handling in `command_handler.cpp`
 2. Implement the command logic in the appropriate class
 3. Ensure `server.cpp` can decode and encode the RESP shape for the new command
-4. Update the Python client to support the new command
+4. Update helper clients if the command surface changes
 5. Run `ctest --output-on-failure`
 
 ### Building and Testing

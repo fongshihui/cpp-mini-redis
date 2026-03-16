@@ -137,6 +137,13 @@ std::string encode_resp(const RedisReply& reply) {
             return "-" + reply.value + "\r\n";
         case RedisReplyType::NullBulkString:
             return "$-1\r\n";
+        case RedisReplyType::Array: {
+            std::string encoded = "*" + std::to_string(reply.elements.size()) + "\r\n";
+            for (const auto& element : reply.elements) {
+                encoded += encode_resp(element);
+            }
+            return encoded;
+        }
     }
 
     return "-ERR internal server error\r\n";
